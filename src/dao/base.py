@@ -33,7 +33,8 @@ class DBSession:
 
 
 class DB:
-    """Helper class
+    """
+    Helper class
     Create engine and session factory
     """
     HOST = os.getenv("POSTGRES_HOST", "127.0.0.1")

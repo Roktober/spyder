@@ -7,6 +7,9 @@ import logging
 
 
 class Parser:
+    """
+    Parser for html and url filter
+    """
     logger = logging.getLogger(__name__)
 
     @staticmethod
@@ -40,6 +43,7 @@ class URLParser:
     ALLOW_SCHEME = ("http", "https")
     AVOID_HTML_LINK_PATTERN = re.compile("#.*")
     ALLOW_ANOTHER_NETLOC = True
+    # TODO: type filter
 
     @staticmethod
     def parse(base_url: urllib.parse.ParseResult, url: str) -> str:

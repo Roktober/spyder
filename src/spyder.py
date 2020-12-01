@@ -19,7 +19,7 @@ from dao.DataModel import ParseData
 
 class Spyder:
     logger = logging.getLogger(__name__)
-    MAX_DEPTH = 2  # parse depth
+    MAX_DEPTH = 2  # max parse depth, throw exception
 
     def __init__(self):
         self.__db = DB()
@@ -33,6 +33,13 @@ class Spyder:
         self.__task_id: int = None
 
     def parse(self, result: str, url: str) -> Data:
+        """
+        Get title and links from html
+        Save parsed data to DB
+        :param result: html
+        :param url: source url
+        :return: parsed data
+        """
         data: Data = None
         if result:
             data = Parser.parse(result, url)
@@ -58,6 +65,12 @@ class Spyder:
     async def worker(self,
                      future: Union[Coroutine, asyncio.Future],
                      depth: int) -> None:
+        """
+        Make request to url async and parse data in thread
+        Start new workers for parsed urls
+        :param future: result of self.parse function
+        :param depth: current depth
+        """
         futures = []
         if depth < self._depth:
             data = await future
@@ -93,6 +106,11 @@ class Spyder:
         self._depth = depth
 
     def start(self, url: str, depth: int):
+        """
+        Entry point
+        :param url: start url
+        :param depth:
+        """
         self.set_depth(depth)
         self.__task_id = self.__task_dao.save_data(Task(url=url,
                                                         created=datetime.now()))
