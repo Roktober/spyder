@@ -1,0 +1,27 @@
+version: '3.2'
+
+services:
+  app:
+    build: .
+    volumes:
+      - /etc/passwd:/etc/passwd:cached
+      - /etc/group:/etc/group:cached
+      - .:/app:cached
+    env_file:
+      - ./.env
+    links:
+      - db
+  db:
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    image: postgres:12.0-alpine
+    environment:
+      - POSTGRES_USER=spyder
+      - POSTGRES_PASSWORD=12345678
+      - POSTGRES_DB=spyder
+      - POSTGRES_PORT=5432
+      - POSTGRES_HOST=127.0.0.1
+
+volumes:
+  postgres_data:
+
