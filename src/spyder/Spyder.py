@@ -4,33 +4,36 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 import logging
 from datetime import datetime
-import time
 
 import aiohttp
 
-from parser.Parser import Parser
-from parser.data.Data import Data
-from dao.base import DB
-from dao.DataDAO import DataDAO
-from dao.TaskDAO import TaskDAO
-from dao.TaskModel import Task
-from dao.DataModel import ParseData
+from spyder.parser.Parser import Parser
+from spyder.parser.data.Data import Data
+from spyder.dao.Base import DB
+from spyder.dao.DataDAO import DataDAO
+from spyder.dao.TaskDAO import TaskDAO
+from spyder.dao.model.TaskModel import Task
+from spyder.dao.model.DataModel import ParseData
 
 
 class Spyder:
+    """
+    Spyder application
+    Parse links and save result to postgres
+    """
     logger = logging.getLogger(__name__)
     MAX_DEPTH = 2  # max parse depth, throw exception
 
     def __init__(self):
-        self.__db = DB()
-        self.__task_dao = TaskDAO(self.__db)
-        self.__data_dao = DataDAO(self.__db)
+        self._db = DB()
+        self._task_dao = TaskDAO(self._db)
+        self._data_dao = DataDAO(self._db)
         self.parsed_urls: Set[str] = set()
-        self.__loop = asyncio.get_event_loop()
-        self.__pool: ThreadPoolExecutor = None
-        self.__client: aiohttp.ClientSession = None
+        self._loop = asyncio.get_event_loop()
+        self._pool: ThreadPoolExecutor = None
+        self._client: aiohttp.ClientSession = None
         self._depth: int = 0
-        self.__task_id: int = None
+        self._task_id: int = None
 
     def parse(self, result: str, url: str) -> Data:
         """
@@ -44,18 +47,18 @@ class Spyder:
         if result:
             data = Parser.parse(result, url)
             if data:
-                self.__data_dao.save_data(
+                self._data_dao.save_data(
                     ParseData(url=data.uri,
                               title=data.title,
                               html=data.html,
                               created=datetime.now(),
-                              task_id=self.__task_id))
+                              task_id=self._task_id))
         return data
 
     async def request(self, url: str) -> (str, str):
         html: str = None
         try:
-            result = await self.__client.get(url)
+            result = await self._client.get(url)
             if result.status == 200:
                 html = await result.text()
         except Exception:
@@ -73,16 +76,16 @@ class Spyder:
         """
         futures = []
         if depth < self._depth:
-            data = await future
+            data: Data = await future
             if data:
                 urls_to_parse = data.urls - self.parsed_urls
                 self.parsed_urls |= data.urls
                 for request_future in asyncio.as_completed(
-                    [self.request(url) for url in urls_to_parse]):
+                        [self.request(url) for url in urls_to_parse]):
                     parse_future = \
-                        self.__loop.run_in_executor(self.__pool,
-                                                    self.parse,
-                                                    *(await request_future))
+                        self._loop.run_in_executor(self._pool,
+                                                   self.parse,
+                                                   *(await request_future))
 
                     futures.append(
                         asyncio.ensure_future(
@@ -92,15 +95,27 @@ class Spyder:
             await asyncio.wait(futures)
 
     async def start_worker(self, url: str) -> None:
+        """
+        Entry worker
+        Create mock future, initialize aiohttp pool and thread pool
+        :param url: start url
+        """
         with ThreadPoolExecutor(max_workers=os.cpu_count()) as pool:
-            self.__pool = pool
+            self._pool = pool
             async with aiohttp.ClientSession() as client:
-                self.__client = client
-                initial_future = self.__loop.create_future()
+                self._client = client
+                initial_future = self._loop.create_future()
                 initial_future.set_result(Data(None, None, None, {url}))
-                await self.worker(initial_future, -1)
+                await self.worker(future=initial_future, depth=-1)
+                # start depth -1 for process mock future
 
     def set_depth(self, depth: int):
+        """
+        Set parse depth
+        :raises ValueError: if depth > MAX_DEPTH
+        :param depth
+        :return:
+        """
         if depth > Spyder.MAX_DEPTH:
             raise ValueError(f"Depth should be less then {Spyder.MAX_DEPTH}")
         self._depth = depth
@@ -112,23 +127,24 @@ class Spyder:
         :param depth:
         """
         self.set_depth(depth)
-        self.__task_id = self.__task_dao.save_data(Task(url=url,
-                                                        created=datetime.now()))
+        self._task_id = self._task_dao.save_data(
+                                        Task(url=url, created=datetime.now()))
         try:
-            self.__loop.run_until_complete(
+            self._loop.run_until_complete(
                 self.start_worker(url))
-        except Exception as e:
+        except Exception:
             Spyder.logger.error("Spyder error", exc_info=True)
         finally:
-            self.__loop.close()
+            self._loop.close()
             Spyder.logger.info(f"Parse complete, parsed urls count: "
                                f"{len(self.parsed_urls)}")
 
     def get_parsed_data(self, url: str, limit: int) -> str:
-        tasks = self.__task_dao.get_by_url(url)
+        tasks = self._task_dao.get_by_url(url)
+        # TODO: Can be more than one result
         if tasks:
             id = tasks[0].id
-            result = self.__data_dao.get_data_by_task_id(id, limit)
+            result = self._data_dao.get_data_by_task_id(id, limit)
             return "\n".join([r.url + " " + r.title for r in result])
         else:
             return "Empty result"

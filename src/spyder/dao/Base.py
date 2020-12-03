@@ -3,16 +3,16 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from dao.BaseModel import Base
-from dao.TaskModel import Task
-from dao.DataModel import ParseData
+from spyder.dao.model.BaseModel import Base
+from spyder.dao.model.TaskModel import Task
+from spyder.dao.model.DataModel import ParseData
 
 
 class DBSession:
     """Helper class for work with session"""
     _session: Session
 
-    def __init__(self, session: Session, *args, **kwargs):
+    def __init__(self, session: Session):
         self._session = session
 
     def query(self, *entities, **kwargs):
@@ -22,14 +22,24 @@ class DBSession:
     def add(self, data):
         """Insert object"""
         self._session.add(data)
-        self._session.commit()
+        self.__commit_session()
 
     def add_get_key(self, data):
         """Insert and return key"""
         self._session.add(data)
         self._session.flush()
-        self._session.commit()
+        self.__commit_session()
         return data.id
+
+    def __commit_session(self):
+        self._session.commit()
+
+    def __close_session(self):
+        self._session.close()
+
+    def __accept_session(self):
+        self.__commit_session()
+        self.__close_session()
 
 
 class DB:

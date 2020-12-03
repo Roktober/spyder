@@ -1,6 +1,6 @@
 from sqlalchemy import Column, TIMESTAMP, VARCHAR
 
-from dao.BaseModel import BaseModel
+from spyder.dao.model.BaseModel import BaseModel
 
 
 class Task(BaseModel):

@@ -1,7 +1,7 @@
 from typing import List
 
-from .base import DB
-from .DataModel import ParseData
+from .Base import DB
+from spyder.dao.model.DataModel import ParseData
 
 
 class DataDAO:
@@ -12,7 +12,6 @@ class DataDAO:
         self.__db.get_session().add(data)
 
     def get_data_by_task_id(self, _id: int, limit: int) -> List[ParseData]:
-        result = self.__db.get_session().query(ParseData)\
+        result = self.__db.get_session().query(ParseData) \
             .filter(ParseData.task_id == _id).limit(limit).all()
         return result
-
